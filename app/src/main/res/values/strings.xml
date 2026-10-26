@@ -1,0 +1,31 @@
+<resources>
+    <string name="app_name">CurrenSee</string>
+    <string name="prototype_label">Prototipe tampilan</string>
+    <string name="camera_instruction">Arahkan kamera ke uang</string>
+    <string name="camera_disconnected">Kamera belum terhubung</string>
+    <string name="camera_permission_required">Aktifkan izin kamera untuk melihat dan mengambil gambar uang.</string>
+    <string name="camera_permission_denied">Izin kamera ditolak. Anda dapat mengaktifkannya untuk mengambil gambar uang.</string>
+    <string name="camera_permission_blocked">Izin kamera belum aktif. Izinkan Kamera melalui pengaturan aplikasi.</string>
+    <string name="enable_camera">Aktifkan kamera</string>
+    <string name="open_settings">Buka pengaturan</string>
+    <string name="retry_camera">Coba lagi</string>
+    <string name="camera_starting">Menyiapkan kamera…</string>
+    <string name="camera_ready">Kamera belakang aktif</string>
+    <string name="camera_paused">Kamera dijeda saat aplikasi tidak aktif.</string>
+    <string name="camera_unavailable">Kamera belakang tidak tersedia pada perangkat ini.</string>
+    <string name="camera_error">Kamera belum dapat digunakan. Tutup aplikasi lain yang memakai kamera, lalu coba lagi.</string>
+    <string name="capture_in_progress">Sedang mengambil gambar…</string>
+    <string name="capture_success">Gambar berhasil diambil. Pengenalan uang belum tersedia.</string>
+    <string name="capture_failed">Gambar gagal diambil. Pastikan kamera aktif, lalu coba lagi.</string>
+    <string name="settings_unavailable">Pengaturan tidak dapat dibuka. Buka izin Kamera melalui pengaturan perangkat.</string>
+    <string name="permission_unavailable">Permintaan izin tidak dapat dibuka. Aktifkan Kamera melalui pengaturan aplikasi.</string>
+    <string name="recognition_heading">Hasil pengenalan</string>
+    <string name="result_empty">Belum ada hasil</string>
+    <string name="result_processing">Sedang mengenali uang…</string>
+    <string name="result_unrecognized">Uang belum dikenali</string>
+    <string name="try_again_instruction">Pastikan uang terlihat jelas, lalu coba lagi.</string>
+    <string name="recognize_money">Kenali uang</string>
+    <string name="repeat_speech">Ulangi suara</string>
+    <string name="speech_unavailable">Suara belum tersedia pada prototipe.</string>
+    <string name="speech_needs_result">Suara tersedia setelah ada hasil.</string>
+</resources>
