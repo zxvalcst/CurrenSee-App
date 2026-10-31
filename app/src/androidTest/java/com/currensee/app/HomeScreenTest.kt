@@ -215,6 +215,7 @@ class HomeScreenTest {
             RecognitionState.Capturing to R.string.capture_in_progress,
             RecognitionState.Processing to R.string.result_processing,
             RecognitionState.CaptureFailed to R.string.capture_failed,
+            RecognitionState.Failure to R.string.recognition_failed,
             RecognitionState.Unrecognized to R.string.result_unrecognized
         )) {
             compose.runOnIdle {
@@ -232,6 +233,12 @@ class HomeScreenTest {
                 .assertHeightIsAtLeast(64.dp)
             assertTextFits("Ulangi suara")
         }
+        compose.runOnIdle {
+            state.value = HomeUiState(RecognitionState.Recognized("Rp100.000"),
+                isSpeechAvailable = true, historySaveFailed = true)
+        }
+        assertTextFits(context.getString(R.string.history_save_failed))
+        compose.onNodeWithText("Ulangi suara").performScrollTo().assertIsEnabled()
     }
 
     private fun assertTextFits(text: String) {

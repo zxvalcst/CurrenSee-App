@@ -24,6 +24,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.Observer
+import com.currensee.app.recognition.CaptureDiagnostics
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -51,7 +52,9 @@ class CameraController(private val context: Context) {
     private var cameraObserver: Observer<CameraState>? = null
     private var displayListener: DisplayManager.DisplayListener? = null
     @Volatile private var generation = 0
+    @Volatile private var captureGeneration = 0
     @Volatile private var disposed = false
+    private var workerCleanup: () -> Unit = {}
 
     fun bind(lifecycleOwner: LifecycleOwner, previewView: PreviewView) {
         if (disposed) return
@@ -63,6 +66,7 @@ class CameraController(private val context: Context) {
 
         lifecycleObserver = LifecycleEventObserver { _, event ->
             when (event) {
+                Lifecycle.Event.ON_PAUSE -> captureGeneration++
                 Lifecycle.Event.ON_STOP -> {
                     // Pertahankan pesan gagal/tidak tersedia agar tindakan retry tidak hilang.
                     if (status != CameraStatus.Error && status != CameraStatus.Unavailable) {
@@ -150,16 +154,27 @@ class CameraController(private val context: Context) {
     }
 
     /** Consumer sinkron berjalan di worker; setiap ImageProxy ditutup, termasuk saat consumer gagal. */
-    fun capture(onImageCaptured: (ImageProxy) -> Unit): Boolean {
+    fun capture(
+        onProcessing: () -> Unit = {},
+        onFinished: (CaptureStatus) -> Unit = {},
+        onImageCaptured: (ImageProxy) -> Unit
+    ): Boolean {
+        val captureId = CaptureDiagnostics.newId()
+        CaptureDiagnostics.event(captureId) { "CAPTURE requested cameraStatus=$status" }
         val capture = imageCapture
         if (disposed || status != CameraStatus.Ready || capture == null || isCapturing ||
             owner?.lifecycle?.currentState?.isAtLeast(Lifecycle.State.RESUMED) != true
         ) {
+            CaptureDiagnostics.event(captureId) { "DECISION REJECTED reason=camera_not_ready_or_capture_busy_or_lifecycle_inactive" }
             if (!disposed && !isCapturing) captureStatus = CaptureStatus.Error
             return false
         }
-        if (!inFlight.compareAndSet(false, true)) return false
+        if (!inFlight.compareAndSet(false, true)) {
+            CaptureDiagnostics.event(captureId) { "DECISION REJECTED reason=capture_in_flight" }
+            return false
+        }
         val binding = generation
+        val request = captureGeneration
         isCapturing = true
         captureStatus = CaptureStatus.Capturing
         try {
@@ -169,40 +184,72 @@ class CameraController(private val context: Context) {
                 override fun onCaptureSuccess(image: ImageProxy) {
                     var result = CaptureStatus.Error
                     try {
-                        consumeCapturedImage(image) {
-                            if (!disposed && binding == generation) {
-                                onImageCaptured(it)
-                                result = CaptureStatus.Captured
+                        CaptureDiagnostics.withCapture(captureId) {
+                            consumeCapturedImage(image) {
+                                if (!disposed && binding == generation && request == captureGeneration) {
+                                    mainExecutor.execute {
+                                        if (isCurrentCapture(binding, request)) onProcessing()
+                                    }
+                                    onImageCaptured(it)
+                                    result = CaptureStatus.Captured
+                                } else {
+                                    CaptureDiagnostics.image(it)
+                                    CaptureDiagnostics.event { "DECISION DISCARDED reason=lifecycle_or_binding_changed_before_inference" }
+                                }
                             }
                         }
                     } catch (error: Exception) {
-                        Log.e(TAG, "Image consumer failed", error)
+                        CaptureDiagnostics.event(captureId) { "DECISION FAILURE reason=image_consumer errorType=${error.javaClass.simpleName}" }
                     } finally {
-                        finishCapture(binding, result)
+                        finishCapture(binding, request, result, onFinished, captureId)
                     }
                 }
 
                 override fun onError(exception: ImageCaptureException) {
-                    Log.e(TAG, "Capture failed", exception)
-                    finishCapture(binding, CaptureStatus.Error)
+                    CaptureDiagnostics.event(captureId) { "DECISION FAILURE reason=camera_capture errorCode=${exception.imageCaptureError} models=not_run" }
+                    finishCapture(binding, request, CaptureStatus.Error, onFinished, captureId)
                 }
             })
         } catch (error: Exception) {
-            Log.e(TAG, "Cannot start capture", error)
-            finishCapture(binding, CaptureStatus.Error)
+            CaptureDiagnostics.event(captureId) { "DECISION FAILURE reason=start_capture errorType=${error.javaClass.simpleName} models=not_run" }
+            finishCapture(binding, request, CaptureStatus.Error, onFinished, captureId)
         }
         return true
     }
 
-    private fun finishCapture(binding: Int, result: CaptureStatus) {
+    private fun isCurrentCapture(binding: Int, request: Int): Boolean =
+        !disposed && binding == generation && request == captureGeneration &&
+            owner?.lifecycle?.currentState?.isAtLeast(Lifecycle.State.RESUMED) == true
+
+    private fun finishCapture(
+        binding: Int, request: Int, result: CaptureStatus, onFinished: (CaptureStatus) -> Unit,
+        captureId: String?
+    ) {
         mainExecutor.execute {
             inFlight.set(false)
+            CaptureDiagnostics.event(captureId) {
+                "DELIVERY captureStatus=$result current=${isCurrentCapture(binding, request)} " +
+                    "reason=${if (isCurrentCapture(binding, request)) "callback_current" else "lifecycle_or_binding_changed_result_discarded"}"
+            }
             if (!disposed) {
                 isCapturing = false
-                captureStatus = if (binding == generation) result else CaptureStatus.Error
+                val current = isCurrentCapture(binding, request)
+                captureStatus = if (current) result else CaptureStatus.Idle
+                if (current) onFinished(result) // Hanya main thread dan layar/lifecycle yang sama.
             }
             // Tunggu callback capture selesai sebelum menutup executor, agar frame tetap ditutup.
-            if (disposed) imageExecutor.shutdown()
+            if (disposed) shutdownWorker()
+        }
+    }
+
+    private fun shutdownWorker() {
+        if (!imageExecutor.isShutdown) {
+            imageExecutor.execute {
+                try { workerCleanup() } catch (error: Exception) {
+                    Log.e(TAG, "Worker cleanup gagal", error)
+                }
+            }
+            imageExecutor.shutdown()
         }
     }
 
@@ -227,6 +274,7 @@ class CameraController(private val context: Context) {
 
     fun unbind() {
         generation++ // Abaikan hasil inisialisasi/capture milik view yang sudah dilepas.
+        captureGeneration++
         lifecycleObserver?.let { owner?.lifecycle?.removeObserver(it) }
         streamObserver?.let { view?.previewStreamState?.removeObserver(it) }
         cameraObserver?.let { cameraState?.removeObserver(it) }
@@ -242,11 +290,12 @@ class CameraController(private val context: Context) {
         if (!disposed) status = CameraStatus.Paused
     }
 
-    fun close() {
+    fun close(onWorkerClosed: () -> Unit = {}) {
         if (disposed) return
         disposed = true
+        workerCleanup = onWorkerClosed
         unbind()
-        if (!inFlight.get()) imageExecutor.shutdown()
+        if (!inFlight.get()) shutdownWorker()
     }
 
     private companion object { const val TAG = "CurrenSeeCamera" }

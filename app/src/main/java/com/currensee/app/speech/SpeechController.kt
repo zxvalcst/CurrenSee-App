@@ -8,10 +8,16 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import java.util.Locale
 
-class SpeechController(context: Context) : TextToSpeech.OnInitListener {
+interface SpeechOutput : AutoCloseable {
+    val isAvailable: Boolean
+    fun speak(text: String)
+    fun stop()
+}
+
+class SpeechController(context: Context) : TextToSpeech.OnInitListener, SpeechOutput {
     private val tts = TextToSpeech(context.applicationContext, this)
 
-    var isAvailable by mutableStateOf(false)
+    override var isAvailable by mutableStateOf(false)
         private set
 
     override fun onInit(status: Int) {
@@ -25,9 +31,11 @@ class SpeechController(context: Context) : TextToSpeech.OnInitListener {
         Log.d("SpeechController", "TTS siap, setLanguage=$result, isAvailable=$isAvailable")
     }
 
-    fun speak(text: String) {
+    override fun speak(text: String) {
         if (isAvailable) tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "currensee")
     }
 
-    fun close() = tts.shutdown()
+    override fun stop() { tts.stop() }
+
+    override fun close() = tts.shutdown()
 }

@@ -8,7 +8,7 @@ sealed interface RecognitionState {
     data class Recognized(val denomination: String) : RecognitionState
     data object Unrecognized : RecognitionState
     data object Capturing : RecognitionState
-    data object ImageCaptured : RecognitionState
+    data object Failure : RecognitionState
     data object CaptureFailed : RecognitionState
 }
 
@@ -17,7 +17,8 @@ data class HomeUiState(
     val isSpeechAvailable: Boolean = false,
     val camera: CameraStatus = CameraStatus.PreviewOnly,
     val isCameraActionEnabled: Boolean = true,
-    val isCaptureInFlight: Boolean = false
+    val isCaptureInFlight: Boolean = false,
+    val historySaveFailed: Boolean = false
 ) {
     val canCapture: Boolean
         get() = camera in setOf(CameraStatus.Ready, CameraStatus.PreviewOnly) &&

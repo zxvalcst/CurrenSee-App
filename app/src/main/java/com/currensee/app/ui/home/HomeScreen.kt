@@ -208,6 +208,14 @@ private fun ControlPanel(
                 modifier = Modifier.padding(bottom = 16.dp)
             )
             RecognitionResult(uiState.recognition)
+            if (uiState.historySaveFailed) {
+                Text(
+                    stringResource(R.string.history_save_failed),
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(top = 12.dp)
+                        .semantics { liveRegion = LiveRegionMode.Polite }
+                )
+            }
             Box(Modifier.padding(top = 24.dp)) {
                 RecognitionActions(uiState, onRecognize, onRepeatSpeech)
             }
@@ -235,7 +243,7 @@ private fun RecognitionResult(state: RecognitionState) {
             is RecognitionState.Recognized -> state.denomination
             RecognitionState.Unrecognized -> stringResource(R.string.result_unrecognized)
             RecognitionState.Capturing -> stringResource(R.string.capture_in_progress)
-            RecognitionState.ImageCaptured -> stringResource(R.string.capture_success)
+            RecognitionState.Failure -> stringResource(R.string.recognition_failed)
             RecognitionState.CaptureFailed -> stringResource(R.string.capture_failed)
         }
         Text(

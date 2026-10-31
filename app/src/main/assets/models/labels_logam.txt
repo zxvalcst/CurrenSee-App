@@ -1,0 +1,5 @@
+bukan_uang
+logam_100
+logam_1000
+logam_200
+logam_500
