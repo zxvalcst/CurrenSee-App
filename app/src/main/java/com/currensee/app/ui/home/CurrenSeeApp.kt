@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.provider.Settings
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -11,6 +12,7 @@ import androidx.camera.core.ImageProxy
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -23,6 +25,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.edit
 import androidx.core.net.toUri
+import androidx.room.Room
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.currensee.app.R
@@ -32,7 +35,12 @@ import com.currensee.app.camera.CameraStatus
 import com.currensee.app.camera.CaptureStatus
 import com.currensee.app.camera.onCapturedImage
 import com.currensee.app.camera.permissionStatus
+import com.currensee.app.data.AppDatabase
+import com.currensee.app.data.Riwayat
+import com.currensee.app.speech.SpeechController
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun CurrenSeeApp(
@@ -40,9 +48,30 @@ fun CurrenSeeApp(
     onImageCaptured: (ImageProxy) -> Unit = ::onCapturedImage
 ) {
     val controller = remember(activity) { CameraController(activity.applicationContext) }
+    val speech = remember(activity) { SpeechController(activity.applicationContext) }
+    val database = remember(activity) {
+        Room.databaseBuilder(
+            activity.applicationContext,
+            AppDatabase::class.java, "riwayat.db"
+        ).build()
+    }
+    // Hasil placeholder sampai model deteksi terpasang. Ganti dengan keluaran model nanti.
+    var lastResult by remember { mutableStateOf<Pair<String, String>?>(null) } // (teks tampilan, teks ucapan)
+    LaunchedEffect(controller.captureStatus) {
+        if (controller.captureStatus == CaptureStatus.Captured) {
+            // TO DO(9.2): placeholder, ganti dengan hasil klasifikasi model TFLite
+            val result = "Rp50.000" to "Lima puluh ribu rupiah"
+            lastResult = result
+            speech.speak(result.second)
+            withContext(Dispatchers.IO) {
+                database.riwayatDao().insert(Riwayat(nominal = result.first, confidence = 0.92f))
+                Log.d("RiwayatDemo", database.riwayatDao().getAll().toString())
+            }
+        }
+    }
     val preferences = remember(activity) { activity.getSharedPreferences("camera_permission", 0) }
     fun hasPermission() = ContextCompat.checkSelfPermission(activity, Manifest.permission.CAMERA) ==
-        PackageManager.PERMISSION_GRANTED
+            PackageManager.PERMISSION_GRANTED
     fun readPermission(): CameraStatus {
         val granted = hasPermission()
         if (granted) preferences.edit { remove("blocked") }
@@ -79,6 +108,8 @@ fun CurrenSeeApp(
         onDispose {
             activity.lifecycle.removeObserver(observer)
             controller.close()
+            speech.close()
+            database.close()
         }
     }
 
@@ -87,10 +118,12 @@ fun CurrenSeeApp(
         camera = if (granted) controller.status else permission,
         isCameraActionEnabled = !requesting,
         isCaptureInFlight = controller.isCapturing,
+        isSpeechAvailable = speech.isAvailable,
         recognition = when (controller.captureStatus) {
             CaptureStatus.Idle -> RecognitionState.Idle
             CaptureStatus.Capturing -> RecognitionState.Capturing
-            CaptureStatus.Captured -> RecognitionState.ImageCaptured
+            CaptureStatus.Captured -> lastResult?.let { RecognitionState.Recognized(it.first) }
+                ?: RecognitionState.ImageCaptured
             CaptureStatus.Error -> RecognitionState.CaptureFailed
         }
     )
@@ -102,8 +135,7 @@ fun CurrenSeeApp(
             if (hasPermission()) controller.capture { consumer(it) }
             else permission = readPermission()
         },
-        // Integrasi suara belum tersedia; isSpeechAvailable tetap false.
-        onRepeatSpeech = {},
+        onRepeatSpeech = { lastResult?.let { speech.speak(it.second) } },
         onCameraAction = {
             when {
                 hasPermission() -> {
