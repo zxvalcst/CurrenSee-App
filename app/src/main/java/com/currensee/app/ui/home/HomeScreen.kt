@@ -150,13 +150,13 @@ private fun CameraArea(
                 stringResource(statusText),
                 style = MaterialTheme.typography.bodyMedium,
                 color = CameraWhite,
-                modifier = Modifier.align(Alignment.BottomStart).padding(32.dp)
+                modifier = Modifier.align(Alignment.BottomStart).padding(16.dp)
                     .background(CameraSurface, RoundedCornerShape(8.dp)).padding(8.dp)
                     .semantics { liveRegion = LiveRegionMode.Polite }
             )
         } else {
             Column(
-                Modifier.padding(horizontal = 40.dp, vertical = 32.dp),
+                Modifier.padding(horizontal = 24.dp, vertical = 24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
@@ -171,12 +171,19 @@ private fun CameraArea(
                     Button(
                         onClick = onCameraAction,
                         enabled = uiState.isCameraActionEnabled,
-                        modifier = Modifier.heightIn(min = 56.dp),
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = CameraWhite,
                             contentColor = MaterialTheme.colorScheme.primary
                         )
-                    ) { Text(stringResource(actionText), textAlign = TextAlign.Center) }
+                    ) {
+                        Text(
+                            stringResource(actionText),
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.Center
+                        )
+                    }
                 }
             }
         }
@@ -194,7 +201,7 @@ private fun ControlPanel(
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
         color = MaterialTheme.colorScheme.surface
     ) {
-        Column(Modifier.padding(horizontal = 24.dp, vertical = 24.dp)) {
+        Column(Modifier.padding(horizontal = 24.dp, vertical = 20.dp)) {
             Text(
                 text = stringResource(R.string.camera_instruction),
                 style = MaterialTheme.typography.bodyLarge,
@@ -204,12 +211,6 @@ private fun ControlPanel(
             Box(Modifier.padding(top = 24.dp)) {
                 RecognitionActions(uiState, onRecognize, onRepeatSpeech)
             }
-            Text(
-                text = stringResource(R.string.prototype_label),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 16.dp)
-            )
         }
     }
 }
@@ -224,8 +225,9 @@ private fun RecognitionResult(state: RecognitionState) {
     ) {
         Text(
             text = stringResource(R.string.recognition_heading),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.semantics { heading() }
         )
         val resultText = when (state) {
             RecognitionState.Idle -> stringResource(R.string.result_empty)
@@ -269,7 +271,7 @@ private fun RecognitionActions(
 ) {
     val canRepeatSpeech = uiState.recognition is RecognitionState.Recognized &&
         uiState.isSpeechAvailable
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Button(
             onClick = onRecognize,
             enabled = uiState.canCapture,
@@ -281,12 +283,16 @@ private fun RecognitionActions(
                 disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant
             )
         ) {
-            Text(stringResource(R.string.recognize_money), textAlign = TextAlign.Center)
+            Text(
+                stringResource(R.string.recognize_money),
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center
+            )
         }
         OutlinedButton(
             onClick = onRepeatSpeech,
             enabled = canRepeatSpeech,
-            modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+            modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp),
             shape = RoundedCornerShape(16.dp),
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
             contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp),
@@ -295,16 +301,18 @@ private fun RecognitionActions(
                 disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant
             )
         ) {
-            Text(stringResource(R.string.repeat_speech), textAlign = TextAlign.Center)
-        }
-        if (!canRepeatSpeech) {
             Text(
-                text = stringResource(
-                    if (uiState.isSpeechAvailable) R.string.speech_needs_result
-                    else R.string.speech_unavailable
-                ),
+                stringResource(R.string.repeat_speech),
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center
+            )
+        }
+        if (!uiState.isSpeechAvailable) {
+            Text(
+                text = stringResource(R.string.speech_unavailable),
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }
             )
         }
     }

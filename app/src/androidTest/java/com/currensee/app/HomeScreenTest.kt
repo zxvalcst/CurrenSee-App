@@ -9,6 +9,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertHeightIsAtLeast
+import androidx.compose.ui.test.assertWidthIsAtLeast
+import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -71,7 +79,7 @@ class HomeScreenTest {
         compose.onNodeWithText("Kenali uang").assertIsNotEnabled()
         compose.onNodeWithText("Ulangi suara").assertIsNotEnabled()
 
-        // Test fixture; aplikasi tidak menghasilkan nominal contoh ini.
+        // Fixture UI untuk state hasil, tanpa kamera, TTS, atau database.
         compose.runOnIdle {
             state.value = HomeUiState(RecognitionState.Recognized("Rp50.000"))
         }
@@ -174,9 +182,79 @@ class HomeScreenTest {
         saveScreenshot("small_font2_controls")
     }
 
+    @Test
+    fun smallScreenAtDoubleFontKeepsStatusAndActionsReadable() {
+        val state = mutableStateOf(HomeUiState(camera = CameraStatus.PermissionRequired))
+        compose.setContent {
+            val density = LocalDensity.current
+            CompositionLocalProvider(LocalDensity provides Density(density.density, 2f)) {
+                CurrenSeeTheme {
+                    Box(Modifier.size(320.dp, 568.dp)) {
+                        HomeScreen(state.value, {}, {})
+                    }
+                }
+            }
+        }
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        for ((status, message, action) in listOf(
+            Triple(CameraStatus.PermissionRequired, R.string.camera_permission_required, R.string.enable_camera),
+            Triple(CameraStatus.PermissionDenied, R.string.camera_permission_denied, R.string.enable_camera),
+            Triple(CameraStatus.PermissionBlocked, R.string.camera_permission_blocked, R.string.open_settings),
+            Triple(CameraStatus.Error, R.string.camera_error, R.string.retry_camera),
+            Triple(CameraStatus.Unavailable, R.string.camera_unavailable, R.string.retry_camera)
+        )) {
+            compose.runOnIdle { state.value = HomeUiState(camera = status) }
+            assertTextFits(context.getString(message))
+            val button = compose.onNode(hasText(context.getString(action)) and hasClickAction())
+            button.performScrollTo().assertIsDisplayed().assertIsEnabled()
+                .assertHeightIsAtLeast(64.dp).assertWidthIsAtLeast(64.dp)
+            saveScreenshot("${status}_font2")
+            assertTextFits(context.getString(action))
+        }
+        for ((recognition, message) in listOf(
+            RecognitionState.Capturing to R.string.capture_in_progress,
+            RecognitionState.Processing to R.string.result_processing,
+            RecognitionState.CaptureFailed to R.string.capture_failed,
+            RecognitionState.Unrecognized to R.string.result_unrecognized
+        )) {
+            compose.runOnIdle {
+                state.value = HomeUiState(recognition, camera = CameraStatus.Ready)
+            }
+            val result = compose.onNodeWithText("Hasil pengenalan", substring = true)
+            result.assert(SemanticsMatcher.expectValue(SemanticsProperties.LiveRegion, LiveRegionMode.Polite))
+                .assert(SemanticsMatcher.keyIsDefined(SemanticsProperties.Heading))
+            assertTextFits(context.getString(R.string.camera_instruction))
+            assertTextFits(context.getString(message))
+            compose.onNodeWithText("Kenali uang").performScrollTo().assertIsDisplayed()
+                .assertHeightIsAtLeast(64.dp)
+            assertTextFits("Kenali uang")
+            compose.onNodeWithText("Ulangi suara").performScrollTo().assertIsDisplayed()
+                .assertHeightIsAtLeast(64.dp)
+            assertTextFits("Ulangi suara")
+        }
+    }
+
+    private fun assertTextFits(text: String) {
+        compose.onNodeWithText(text, useUnmergedTree = true).performScrollTo()
+            .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { getLayouts ->
+                val layouts = mutableListOf<TextLayoutResult>()
+                getLayouts(layouts)
+                assertEquals(1, layouts.size)
+                val layout = layouts.single()
+                assertFalse(
+                    "Teks terpotong: $text, size=${layout.size}, " +
+                        "width=${layout.didOverflowWidth}, height=${layout.didOverflowHeight}, " +
+                        "lines=${layout.lineCount}, paragraph=${layout.multiParagraph.height}",
+                    layout.hasVisualOverflow
+                )
+            }
+    }
+
     private fun saveScreenshot(name: String) {
-        val cache = InstrumentationRegistry.getInstrumentation().targetContext.cacheDir
-        File(cache, "currensee_$name.png").outputStream().use {
+        val output = InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")
+            ?.let { File(it).apply { mkdirs() } }
+            ?: InstrumentationRegistry.getInstrumentation().targetContext.cacheDir
+        File(output, "currensee_$name.png").outputStream().use {
             compose.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, it)
         }
     }

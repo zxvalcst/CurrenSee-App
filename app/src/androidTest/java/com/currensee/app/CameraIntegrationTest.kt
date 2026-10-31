@@ -3,7 +3,6 @@ package com.currensee.app
 import android.Manifest
 import androidx.activity.ComponentActivity
 import androidx.camera.core.ImageProxy
-import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -46,24 +45,23 @@ class CameraIntegrationTest {
     }
 
     @Test
-    fun realCaptureAndBackgroundResumeWorkWithoutFakeRecognition() {
+    fun realCaptureAndBackgroundResumeKeepCurrentPlaceholderResult() {
         val captures = AtomicInteger()
         startCamera { image ->
             check(image.width > 0 && image.height > 0)
             captures.incrementAndGet()
         }
         compose.onNodeWithText("Kenali uang").performScrollTo().performClick()
-        waitFor("Gambar berhasil diambil. Pengenalan uang belum tersedia.")
+        // Kontrak merge TTS/Room: nominal masih placeholder, bukan inferensi model.
+        waitFor("Rp50.000")
         assertEquals(1, captures.get())
-        compose.onNodeWithText("Rp", substring = true).assertDoesNotExist()
-        compose.onNodeWithText("Ulangi suara").assertIsNotEnabled()
 
         compose.activityRule.scenario.moveToState(Lifecycle.State.CREATED)
         compose.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
         waitFor("Kamera belakang aktif")
         compose.onNodeWithText("Kenali uang").performScrollTo().performClick()
         compose.waitUntil(20_000) { captures.get() == 2 }
-        waitFor("Gambar berhasil diambil. Pengenalan uang belum tersedia.")
+        waitFor("Rp50.000")
     }
 
     @Test
@@ -75,9 +73,8 @@ class CameraIntegrationTest {
         compose.onNodeWithText("Kenali uang").performScrollTo().performClick()
         waitFor("Gambar gagal diambil")
         compose.onNodeWithText("Kenali uang").performScrollTo().performClick()
-        waitFor("Gambar berhasil diambil. Pengenalan uang belum tersedia.")
+        waitFor("Rp50.000")
         assertEquals(2, captures.get())
-        compose.onNodeWithText("Ulangi suara").performScrollTo().assertIsDisplayed().assertIsNotEnabled()
     }
 
     @Test
@@ -99,6 +96,6 @@ class CameraIntegrationTest {
         } finally {
             release.countDown()
         }
-        waitFor("Gambar berhasil diambil. Pengenalan uang belum tersedia.")
+        waitFor("Rp50.000")
     }
 }

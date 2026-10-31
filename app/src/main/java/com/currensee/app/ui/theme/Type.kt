@@ -28,37 +28,37 @@ val Typography = Typography(
     headlineLarge = TextStyle(
         fontFamily = Satoshi,
         fontWeight = FontWeight.Bold,
-        fontSize = 44.sp,
-        lineHeight = 56.sp
+        fontSize = 48.sp,
+        lineHeight = 60.sp
     ),
     headlineSmall = TextStyle(
         fontFamily = Satoshi,
         fontWeight = FontWeight.Bold,
-        fontSize = 24.sp,
-        lineHeight = 32.sp
+        fontSize = 28.sp,
+        lineHeight = 36.sp
     ),
     titleLarge = TextStyle(
         fontFamily = Satoshi,
         fontWeight = FontWeight.Medium,
-        fontSize = 24.sp,
-        lineHeight = 32.sp
+        fontSize = 28.sp,
+        lineHeight = 36.sp
     ),
     bodyLarge = TextStyle(
         fontFamily = Satoshi,
         fontWeight = FontWeight.Normal,
-        fontSize = 18.sp,
-        lineHeight = 26.sp
+        fontSize = 22.sp,
+        lineHeight = 32.sp
     ),
     bodyMedium = TextStyle(
         fontFamily = Satoshi,
         fontWeight = FontWeight.Normal,
-        fontSize = 16.sp,
-        lineHeight = 24.sp
+        fontSize = 20.sp,
+        lineHeight = 28.sp
     ),
     labelLarge = TextStyle(
         fontFamily = Satoshi,
         fontWeight = FontWeight.Medium,
-        fontSize = 18.sp,
-        lineHeight = 26.sp
+        fontSize = 22.sp,
+        lineHeight = 30.sp
     )
 )
