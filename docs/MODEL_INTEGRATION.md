@@ -15,8 +15,8 @@ dipakai untuk kompatibilitas. Ini tidak menjelaskan penyebab selisih akurasi eva
 
 | Model | Input | Output | Label |
 | --- | --- | --- | --- |
-| `model_kertas_int8.tflite` | FLOAT32 `[1,224,224,3]` | FLOAT32 `[1,8]` | `labels_kertas.txt` |
-| `model_logam_int8.tflite` | FLOAT32 `[1,224,224,3]` | FLOAT32 `[1,5]` | `labels_logam.txt` |
+| `model_kertas_v2_int8.tflite` | FLOAT32 `[1,224,224,3]` | FLOAT32 `[1,8]` | `labels_kertas.txt` |
+| `model_logam_v2_int8.tflite` | FLOAT32 `[1,224,224,3]` | FLOAT32 `[1,5]` | `labels_logam.txt` |
 
 Nama `int8` tidak menentukan dtype antarmuka. Saat pemuatan, runtime memeriksa satu input,
 satu output, dtype, shape, serta jumlah dan urutan label. Label dibaca dari asset tanpa

@@ -51,6 +51,10 @@ class MoneyRecognizer(private val assets: AssetManager) : ImageRecognizer {
     }
 }
 
+internal object ModelVariant {
+    const val CURRENT = "v5_fp16"   // "v2_int8", "v5_fp16", "v5_int8"
+}
+
 internal fun checkWorker() = check(Looper.myLooper() != Looper.getMainLooper()) {
     "Runtime model harus dijalankan di thread pekerja"
 }
@@ -88,7 +92,7 @@ internal class MoneyModels(assets: AssetManager) : AutoCloseable {
             ModelLabels.read(it.readText(), kind)
         }
         // Asset stream juga bekerja bila APK mengompresi .tflite; tidak perlu mengubah packaging.
-        private val model = assets.open("models/model_${name}_int8.tflite").use { it.readBytes() }.let {
+        private val model = assets.open("models/model_${name}_${ModelVariant.CURRENT}.tflite").use { it.readBytes() }.let {
             ByteBuffer.allocateDirect(it.size).order(ByteOrder.nativeOrder()).apply { put(it); rewind() }
         }
         // Kernel CPU bawaan: persiapan XNNPACK gagal pada asset ini dalam uji emulator.
