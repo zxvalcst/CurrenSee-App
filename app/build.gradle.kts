@@ -35,10 +35,12 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true // BuildConfig.DEBUG membatasi diagnostik pada APK debug.
     }
 }
 
 dependencies {
+    implementation(libs.litert)
     implementation(libs.androidx.camera.core)
     implementation(libs.androidx.camera.camera2)
     implementation(libs.androidx.camera.lifecycle)

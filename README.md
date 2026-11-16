@@ -1,9 +1,10 @@
-# CurrenSee — skeleton UI dan kamera
+# CurrenSee — pengenalan uang dari kamera
 
 Aplikasi Android Kotlin/Jetpack Compose, package `com.currensee.app`, minimum API 26.
 Desain putih–biru dan font Satoshi lokal dipertahankan. CameraX 1.5.3 memakai versi
 yang sama untuk core, camera2, lifecycle, dan view. Gradle serta versi dependency
 lain mengikuti proyek yang sudah ada.
+Inferensi lokal memakai LiteRT 1.4.2 CPU dengan model kertas/logam proposal_v2 sementara.
 
 ## Build dan menjalankan
 
@@ -37,33 +38,79 @@ APK: `app/build/outputs/apk/debug/app-debug.apk`.
   Buka `HomeScreen.kt` → Split/Design → Build & Refresh; tersedia state awal,
   memproses, belum dikenali, nominal contoh, layar kecil, dan font 2×.
 
-## Titik integrasi model
+## Integrasi model, TTS, dan riwayat
 
-Edit **`app/src/main/java/com/currensee/app/camera/CapturedImageHandler.kt`**, fungsi
-**`onCapturedImage(image: ImageProxy)`**. Fungsi ini diteruskan sebagai callback
-`onImageCaptured` dari `CurrenSeeApp` ke `CameraController.capture`.
+`recognition/MoneyRecognizer.kt` memuat kedua model dari `assets/models/` secara lazy
+pada worker kamera. `ImagePreprocessor` menangani format frame, cropRect, rotasi,
+center crop dan RGB FLOAT32 0–255 berukuran 224×224. Tidak ada normalisasi /255 tambahan.
+`RecognitionDecision` mengevaluasi kedua output dengan threshold sementara 0.75/0.15/0.50.
+Threshold belum divalidasi untuk akurasi penggunaan nyata.
 
-Kontrak callback:
+Hanya hasil `Recognized` yang ditampilkan sebagai nominal, dibacakan TTS Indonesia,
+dan disimpan ke Room dengan skor model yang diterima. `Unrecognized`, kegagalan capture,
+kegagalan model, dan kegagalan penyimpanan memiliki penanganan terpisah. Tidak ada
+placeholder prediksi pada alur runtime. Model v2 menunggu konfirmasi versi final training.
 
-- Berjalan di thread pekerja, bukan main thread; satu capture berlangsung pada satu waktu.
-- `image` hanya valid sampai callback selesai. Controller selalu memanggil `close()`
-  di `finally`, termasuk saat callback melempar exception. Konsumen tidak perlu menutupnya.
-- Selesaikan konsumsi secara sinkron sebelum return. Untuk pekerjaan async, salin
-  data yang dibutuhkan selama callback, lalu gunakan salinannya.
-- `image.imageInfo.rotationDegrees`, `image.format`, dimensi, dan plane tersedia.
-  Jangan menganggap buffer sudah diputar atau formatnya selalu sama dengan input model.
-- Saat ini hanya validasi frame di memori. Konversi, preprocessing, model, dan
-  pemetaan nominal akan ditambahkan anggota yang mengerjakan pengenalan uang.
-- Setelah callback sukses, aplikasi hanya menampilkan:
-  **“Gambar berhasil diambil. Pengenalan uang belum tersedia.”**
+CameraController tetap memiliki ImageProxy dan menutupnya tepat sekali di `finally`.
+Inferensi sinkron berlangsung pada worker, satu capture per tombol. Hasil tertunda setelah
+pause/dispose diabaikan; interpreter ditutup pada worker setelah frame selesai dipakai.
+UI aksesibel putih–biru/Satoshi, scroll, dan font sistem 2× dipertahankan.
 
-## Belum diintegrasikan
+Lihat [kontrak, preprocessing, aturan keputusan, keterbatasan dan pengujian model](docs/MODEL_INTEGRATION.md).
+Lisensi Satoshi: `app/src/main/assets/licenses/Satoshi-FFL.txt`.
 
-TFLite/model AI, preprocessing, nominal/confidence/deteksi nyata, TTS, dan database.
-Nominal contoh hanya ada di Preview/pengujian. **Ulangi suara** selalu nonaktif pada
-aplikasi skeleton. Lisensi Satoshi: `app/src/main/assets/licenses/Satoshi-FFL.txt`.
+## Laporan pengujian otomatis — 31 Oktober 2026
 
-## Hasil verifikasi pengerjaan
+Hasil berikut berasal dari dua sesi pengujian yang berbeda:
+
+| Sesi | Unit test lulus | Tes instrumentasi lulus |
+| --- | --- | --- |
+| Integrasi sebelum diagnostik | 9 | 18 |
+| Setelah penambahan diagnostik | 12 | 11 |
+
+Angka dicatat terpisah sesuai sesi masing-masing dan tidak dijumlahkan. Laporan ini tidak
+menyatakan bahwa seluruh pengujian sesi pertama telah diulang setelah diagnostik.
+Pembaruan dokumentasi pada 1 November 2026 tidak menjalankan build atau tes ulang.
+
+- Pada sesi integrasi, `assembleDebug`, `lintDebug`, `testDebugUnitTest`, dan
+  `connectedDebugAndroidTest` dilaporkan berhasil pada emulator Pixel 9 / Android 16.
+- Pada sesi diagnostik, build debug/release, lint, dan unit test dilaporkan berhasil,
+  beserta 11 tes instrumentasi. Rinciannya ada di [laporan diagnostik](docs/MODEL_DIAGNOSTICS.md).
+- Lint pada laporan kedua sesi: 0 error, 23 warning tentang versi dependency/AGP/Kotlin
+  dan resource/template lama.
+- Kedua asset asli berhasil divalidasi dan menjalankan inferensi CPU dengan input FLOAT32
+  yang sama; output 8/5 kelas finite, termasuk pengujian ulang interpreter yang sama.
+  Frame kamera emulator juga berhasil diproses. Ini bukan pengujian akurasi nominal.
+- Tes pada sesi integrasi mencakup crop/rotasi/RGB/JPEG, recovery setelah gagal, hasil tertunda saat lifecycle
+  berubah, cleanup, skor/nominal Room, TTS tiruan, kegagalan insert Room, serta UI 320×568dp/font 2×.
+- Empat asset model/label tetap identik berdasarkan SHA-256 awal. Tidak ada perubahan schema Room.
+- Input `model-smoke-input.f32` dan `model-smoke-output.json` tersedia di additional test output
+  Gradle (`app/build/outputs/connected_android_test_additional_output/`).
+
+## Pengujian eksploratif pada HP fisik — dicatat 1 November 2026
+
+Integrasi telah diuji pada HP Android fisik menggunakan kamera dan uang asli, berdasarkan
+laporan pengguna. Dua model, kertas dan logam, dapat menjalankan inferensi di Android.
+Rincian 10 capture fisik yang dilaporkan:
+
+| Jumlah capture | Hasil | Uang yang diarahkan |
+| --- | --- | --- |
+| 2 | Prediksi Rp50.000 benar | Rp50.000 |
+| 2 | Salah diprediksi sebagai Rp1.000 | Rp10.000 |
+| 6 | Ditolak atau belum dikenali | Sebagian besar Rp50.000; sekitar 1–2 capture menggunakan Rp10.000 |
+
+Komposisi nominal pada enam capture yang ditolak masih merupakan perkiraan.
+Angka ini hanya pengujian eksploratif, **bukan akurasi keseluruhan model**, dan tidak mewakili
+semua nominal atau kondisi penggunaan. Kualitas pengenalan belum stabil; penyebabnya belum
+dipastikan. Belum dapat disimpulkan apakah masalah berasal dari integrasi Android atau kualitas model.
+
+Model **proposal_v2 masih sementara** dan memerlukan pemeriksaan bersama anggota training.
+Threshold 0.75/0.15/0.50 tetap sementara dan belum divalidasi; tidak diubah berdasarkan
+10 capture ini. Masih diperlukan evaluasi terstruktur pada uang kertas/logam dan bukan uang,
+variasi kondisi kamera/perangkat, TalkBack, kualitas audio TTS, JPEG_R hardware, serta
+perbandingan Android dan runtime referensi dengan input identik.
+
+## Hasil verifikasi skeleton sebelumnya (historis)
 
 Diperiksa pada 25 Oktober 2026, emulator Pixel 9 / Android API 36:
 
@@ -80,20 +127,23 @@ Diperiksa pada 25 Oktober 2026, emulator Pixel 9 / Android API 36:
   disengaja lalu capture ulang, serta tombol nonaktif selama konsumen masih memegang frame.
 - Tes UI memeriksa viewport 320 × 568dp, font 2×, scroll kontrol, dan nominal khusus Preview.
 
-Belum diperiksa langsung: HP fisik, TalkBack, Preview di editor Android Studio, rotasi/
+Pada sesi skeleton 25 Oktober 2026, belum diperiksa langsung: HP fisik, TalkBack,
+Preview di editor Android Studio, rotasi/
 kunci layar di HP, perangkat tanpa kamera belakang, kamera dipakai aplikasi lain,
 dan kegagalan hardware asli. Kegagalan konsumen yang diuji bukan simulasi seluruh
 kemungkinan error hardware CameraX.
 
 ## Pengujian manual sebelum penyerahan akhir
 
-Lakukan di HP fisik (API 26 dan versi Android terbaru bila tersedia):
+Daftar berikut merupakan pemeriksaan lanjutan; laporan 10 capture tidak menyatakan bahwa
+semua langkah ini sudah selesai. Lakukan di HP fisik (API 26 dan versi Android terbaru bila tersedia):
 
 1. Instal bersih: tidak ada dialog izin sebelum **Aktifkan kamera** ditekan.
 2. Tolak izin sekali, minta ulang lewat tombol; tolak permanen dan cek **Buka pengaturan**.
 3. Berikan izin dari pengaturan lalu kembali. Cabut izin dan buka aplikasi lagi.
 4. Pastikan kamera belakang tampil, orientasi benar saat rotasi, dan gambar tidak meregang.
-5. Capture berulang: satu proses per waktu; sukses tanpa nominal/hasil AI palsu.
+5. Capture uang kertas/logam dan bukan uang: satu proses per waktu; periksa nominal,
+   ucapan Indonesia, skor/nominal di Room, serta hasil tidak dikenali/gagal tanpa insert.
 6. Home/background, kembali, kunci/buka layar, dan rotasi saat kamera/capture aktif.
 7. Uji kamera sedang dipakai aplikasi lain, kamera dinonaktifkan melalui privasi sistem,
    perangkat tanpa kamera belakang, dan retry setelah kondisinya pulih.

@@ -11,9 +11,11 @@ composeBom = "2024.09.00"
 cameraX = "1.5.3"
 ksp = "2.3.4"
 room = "2.8.4"
+litert = "1.4.2"
 room3Common = "3.0.3"
 
 [libraries]
+litert = { module = "com.google.ai.edge.litert:litert", version.ref = "litert" }
 androidx-camera-core = { group = "androidx.camera", name = "camera-core", version.ref = "cameraX" }
 androidx-camera-camera2 = { group = "androidx.camera", name = "camera-camera2", version.ref = "cameraX" }
 androidx-camera-lifecycle = { group = "androidx.camera", name = "camera-lifecycle", version.ref = "cameraX" }

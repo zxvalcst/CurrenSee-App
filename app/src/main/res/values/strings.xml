@@ -14,7 +14,8 @@
     <string name="camera_unavailable">Kamera belakang tidak tersedia pada perangkat ini.</string>
     <string name="camera_error">Kamera belum dapat digunakan. Tutup aplikasi lain yang memakai kamera, lalu coba lagi.</string>
     <string name="capture_in_progress">Sedang mengambil gambar…</string>
-    <string name="capture_success">Gambar berhasil diambil. Pengenalan uang belum tersedia.</string>
+    <string name="recognition_failed">Pengenalan uang gagal. Silakan coba lagi.</string>
+    <string name="history_save_failed">Hasil belum tersimpan di riwayat.</string>
     <string name="capture_failed">Gambar gagal diambil. Pastikan kamera aktif, lalu coba lagi.</string>
     <string name="settings_unavailable">Pengaturan tidak dapat dibuka. Buka izin Kamera melalui pengaturan perangkat.</string>
     <string name="permission_unavailable">Permintaan izin tidak dapat dibuka. Aktifkan Kamera melalui pengaturan aplikasi.</string>
